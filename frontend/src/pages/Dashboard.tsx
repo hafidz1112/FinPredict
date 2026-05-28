@@ -7,18 +7,37 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 import { AlertTriangle, Calendar, Filter, Search } from 'lucide-react';
-
-const data = [
-  { name: '1 MEI', value: 4000 },
-  { name: '', value: 3500 },
-  { name: '', value: 4200 },
-  { name: '', value: 3800 },
-  { name: '', value: 6000 },
-  { name: '', value: 5000 },
-  { name: '30 MEI', value: 8500 },
-];
+import { usePredictions } from '../hooks/usePredictions';
+import { useTransactions } from '../hooks/useTransactions';
 
 export const Dashboard = () => {
+  const { usePredictionsQuery, useWarningStatusQuery } = usePredictions();
+  const { useTransactionSummaryQuery } = useTransactions();
+
+  const { data: predictions = [] } = usePredictionsQuery();
+  const { data: warningStatus } = useWarningStatusQuery();
+  const { data: summary } = useTransactionSummaryQuery();
+
+  const chartData = predictions.map((p: any) => {
+    const d = new Date(p.forecast_date);
+    return {
+      name: `${d.getDate()} ${d.toLocaleString('id-ID', { month: 'short' }).toUpperCase()}`,
+      value: Number(p.predicted_amount)
+    };
+  });
+
+  const projectedTotal = warningStatus?.projectedTotal || 0;
+  
+  // Calculate distribution data from summary
+  const expenseByCategory = summary?.expenseByCategory || {};
+  const totalExpense = summary?.totalExpense || 0;
+  
+  // Sort categories by amount
+  const sortedCategories = Object.entries(expenseByCategory)
+    .sort(([,a], [,b]) => Number(b) - Number(a))
+    .slice(0, 3); // top 3
+
+  const colors = ['#80FF80', '#FFB6C1', '#D9D9D9'];
   return (
     <div className="bg-[#F5F5DC] min-h-screen p-4 md:p-8 font-sans text-black">
       
@@ -62,7 +81,7 @@ export const Dashboard = () => {
 
           <div className="h-[250px] md:h-[300px] w-full mb-6">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data}>
+              <LineChart data={chartData.length > 0 ? chartData : [{ name: 'No Data', value: 0 }]}>
                 <Line 
                   type="monotone" 
                   dataKey="value" 
@@ -81,7 +100,7 @@ export const Dashboard = () => {
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="bg-[#4ade80] border-4 border-black p-4 flex-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
               <p className="text-[10px] font-black uppercase">Terproyeksi</p>
-              <p className="text-xl md:text-2xl font-black leading-tight">Rp14.500.000</p>
+              <p className="text-xl md:text-2xl font-black leading-tight">Rp{projectedTotal.toLocaleString('id-ID')}</p>
             </div>
             <div className="bg-[#D9D9D9] border-4 border-black p-4 flex-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
               <p className="text-[10px] font-black uppercase">Tingkat Keyakinan</p>
@@ -99,40 +118,52 @@ export const Dashboard = () => {
             <h2 className="text-2xl md:text-3xl font-black uppercase leading-none">Peringatan Dini</h2>
           </div>
           
-          <p className="font-bold mb-8 text-base md:text-lg leading-tight italic">
-            Langganan "CloudScale Pro" diprediksi naik 40% pada siklus penagihan berikutnya.
-          </p>
-
-          <div className="space-y-3">
-            <button className="w-full bg-white text-[#B22222] border-4 border-black py-3 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all">
-              Batalkan Langganan
-            </button>
-            <button className="w-full bg-black text-white border-4 border-black py-3 font-black uppercase shadow-[4px_4px_0px_0px_rgba(255,255,255,0.2)]">
-              Abaikan Alerta
-            </button>
-          </div>
+          {warningStatus?.isOverBudget ? (
+            <>
+              <p className="font-bold mb-8 text-base md:text-lg leading-tight italic">
+                Prediksi total pengeluaran bulan ini sebesar Rp {warningStatus.projectedTotal.toLocaleString('id-ID')} 
+                melebihi anggaran Anda (Rp {warningStatus.totalBudget.toLocaleString('id-ID')}).
+              </p>
+              <div className="space-y-3">
+                <button className="w-full bg-white text-[#B22222] border-4 border-black py-3 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all">
+                  Tinjau Pengeluaran
+                </button>
+              </div>
+            </>
+          ) : (
+             <p className="font-bold mb-8 text-base md:text-lg leading-tight italic">
+               Pengeluaran Anda saat ini diprediksi masih dalam batas aman. Pertahankan pola keuangan Anda!
+             </p>
+          )}
         </div>
 
         {/* Asset Distribution Card */}
         <div className="col-span-1 md:col-span-6 bg-[#FFFF00] border-4 border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-          <h2 className="text-2xl font-black uppercase mb-6 italic text-left">Distribusi Aset</h2>
-          <div className="flex justify-between font-black text-[10px] md:text-sm mb-2 uppercase">
-            <span>Aset Digital</span>
-            <span>Rp4.200.000 (60%)</span>
-          </div>
-          <div className="w-full h-12 md:h-16 border-4 border-black flex mb-6">
-            <div className="h-full w-[60%] bg-[#80FF80] border-r-4 border-black"></div>
-            <div className="h-full w-[25%] bg-[#FFB6C1] border-r-4 border-black"></div>
-            <div className="h-full w-[15%] bg-[#D9D9D9]"></div>
-          </div>
-          <div className="flex flex-wrap gap-4 font-black text-[10px] uppercase text-left">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-[#80FF80] border-2 border-black"></div> Stablecoins
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-[#FFB6C1] border-2 border-black"></div> Growth Tokens
-            </div>
-          </div>
+          <h2 className="text-2xl font-black uppercase mb-6 italic text-left">Distribusi Pengeluaran</h2>
+          
+          {sortedCategories.length > 0 ? (
+            <>
+              <div className="flex justify-between font-black text-[10px] md:text-sm mb-2 uppercase">
+                <span>Total Pengeluaran</span>
+                <span>Rp{totalExpense.toLocaleString('id-ID')}</span>
+              </div>
+              <div className="w-full h-12 md:h-16 border-4 border-black flex mb-6">
+                {sortedCategories.map(([name, amount], idx) => (
+                  <div key={name} className={`h-full border-r-4 border-black last:border-r-0`} style={{ width: `${(Number(amount) / totalExpense) * 100}%`, backgroundColor: colors[idx] }}></div>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-4 font-black text-[10px] uppercase text-left">
+                {sortedCategories.map(([name, amount], idx) => (
+                  <div key={name} className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-black" style={{ backgroundColor: colors[idx] }}></div> 
+                    {name} ({Math.round((Number(amount) / totalExpense) * 100)}%)
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="font-bold text-sm italic">Belum ada data pengeluaran untuk bulan ini.</p>
+          )}
         </div>
 
         {/* Market Sentiment Box */}

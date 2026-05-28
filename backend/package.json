@@ -14,9 +14,9 @@
   "dependencies": {
     "@prisma/client": "6.19.3",
     "@supabase/supabase-js": "^2.105.3",
-    "@tanstack/react-query": "^5.100.9",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
+    "csv-parse": "^5.5.5",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.4.1",
@@ -24,7 +24,8 @@
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.1",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

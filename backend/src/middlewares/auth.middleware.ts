@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import { supabase } from '../config/supabase';
 
 /**
  * Shape of the decoded Supabase JWT payload stored in req.user.
@@ -28,13 +28,11 @@ declare global {
   }
 }
 
-const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET || '';
-
 /**
  * Middleware that validates the Supabase JWT from the Authorization header.
- * On success it attaches the decoded payload to `req.user`.
+ * On success it attaches the user payload to `req.user`.
  */
-export const requireAuth = (req: Request, res: Response, next: NextFunction): void => {
+export const requireAuth = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -48,30 +46,23 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction): vo
 
     const token = authHeader.split(' ')[1];
 
-    if (!SUPABASE_JWT_SECRET) {
-      console.error('❌ SUPABASE_JWT_SECRET is not configured in environment variables.');
-      res.status(500).json({
-        status: 'error',
-        message: 'Server authentication is not configured.',
-      });
-      return;
-    }
+    const { data, error } = await supabase.auth.getUser(token);
 
-    const decoded = jwt.verify(token, SUPABASE_JWT_SECRET) as SupabaseJwtPayload;
-
-    req.user = decoded;
-    next();
-  } catch (error: unknown) {
-    if (error instanceof jwt.TokenExpiredError) {
-      res.status(401).json({ status: 'error', message: 'Token has expired.' });
-      return;
-    }
-
-    if (error instanceof jwt.JsonWebTokenError) {
+    if (error || !data.user) {
+      console.error('❌ requireAuth error:', error?.message);
       res.status(401).json({ status: 'error', message: 'Invalid token.' });
       return;
     }
 
+    req.user = {
+      sub: data.user.id,
+      email: data.user.email,
+      user_metadata: data.user.user_metadata,
+    };
+
+    next();
+  } catch (error: unknown) {
+    console.error('❌ requireAuth error:', error);
     res.status(500).json({ status: 'error', message: 'Authentication failed.' });
   }
 };

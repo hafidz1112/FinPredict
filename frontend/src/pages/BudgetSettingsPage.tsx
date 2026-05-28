@@ -1,8 +1,59 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Settings, Wallet, Bell, ShieldCheck, Save, Target } from 'lucide-react';
+import { useBudgets } from '../hooks/useBudgets';
+import { useCategories } from '../hooks/useCategories';
 
 export function BudgetSettingsPage() {
   const [isAiActive, setIsAiActive] = useState(true);
+  const [fixedIncome, setFixedIncome] = useState('7500000');
+  const [savingsTarget, setSavingsTarget] = useState('2000000');
+  
+  const { useBudgetsQuery, useUpsertBudgetMutation } = useBudgets();
+  const { data: budgets = [] } = useBudgetsQuery();
+  const upsertMutation = useUpsertBudgetMutation();
+
+  const { useCategoriesQuery } = useCategories();
+  const { data: categories = [] } = useCategoriesQuery();
+
+  useEffect(() => {
+    // Find basic categories if they exist in budgets
+    const incomeBudget = budgets.find((b: any) => b.category?.name === 'Pemasukan Tetap' || b.category?.type === 'INCOME');
+    const savingsBudget = budgets.find((b: any) => b.category?.name === 'Target Tabungan');
+    
+    if (incomeBudget) setFixedIncome(incomeBudget.monthly_limit.toString());
+    if (savingsBudget) setSavingsTarget(savingsBudget.monthly_limit.toString());
+  }, [budgets]);
+
+  const handleSave = async () => {
+    try {
+      // Find category IDs
+      const incomeCat = categories.find((c: any) => c.type === 'INCOME');
+      const savingCat = categories.find((c: any) => c.name.toLowerCase().includes('tabungan'));
+      
+      const promises = [];
+      const currentMonth = new Date().toISOString().slice(0, 7) + '-01'; // YYYY-MM-01
+
+      if (incomeCat && fixedIncome) {
+        promises.push(upsertMutation.mutateAsync({
+          category_id: incomeCat.id,
+          monthly_limit: Number(fixedIncome),
+          month_year: currentMonth
+        }));
+      }
+      if (savingCat && savingsTarget) {
+        promises.push(upsertMutation.mutateAsync({
+          category_id: savingCat.id,
+          monthly_limit: Number(savingsTarget),
+          month_year: currentMonth
+        }));
+      }
+
+      await Promise.all(promises);
+      alert('Pengaturan anggaran berhasil disimpan!');
+    } catch (error) {
+      alert('Gagal menyimpan anggaran.');
+    }
+  };
 
   return (
     <div className="bg-[#F5F5DC] min-h-screen font-sans text-black p-4 md:p-8">
@@ -14,8 +65,12 @@ export function BudgetSettingsPage() {
             Konfigurasi parameter AI dan batasan anggaran Anda.
           </p>
         </div>
-        <button className="bg-[#7CFF7C] border-4 border-black px-6 py-3 font-black uppercase text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center gap-2 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all">
-          <Save size={18} /> Simpan Perubahan
+        <button 
+          onClick={handleSave}
+          disabled={upsertMutation.isPending}
+          className="bg-[#7CFF7C] border-4 border-black px-6 py-3 font-black uppercase text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center gap-2 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all disabled:opacity-50"
+        >
+          <Save size={18} /> {upsertMutation.isPending ? 'Menyimpan...' : 'Simpan Perubahan'}
         </button>
       </div>
 
@@ -34,22 +89,32 @@ export function BudgetSettingsPage() {
                   <label className="block text-[10px] font-black uppercase border-2 border-black bg-[#D9D9D7] px-2 py-0.5 ml-3 -mb-2 relative z-20 w-fit">
                     Pemasukan Tetap
                   </label>
-                  <input type="text" defaultValue="Rp 7.500.000" className="w-full border-4 border-black p-4 font-black text-xl focus:bg-yellow-50 outline-none" />
+                  <input 
+                    type="number" 
+                    value={fixedIncome}
+                    onChange={(e) => setFixedIncome(e.target.value)}
+                    className="w-full border-4 border-black p-4 font-black text-xl focus:bg-[#FFFF00] outline-none transition-colors" 
+                  />
                 </div>
                 
                 <div>
                   <label className="block text-[10px] font-black uppercase border-2 border-black bg-[#D9D9D7] px-2 py-0.5 ml-3 -mb-2 relative z-20 w-fit">
                     Target Tabungan
                   </label>
-                  <input type="text" defaultValue="Rp 2.000.000" className="w-full border-4 border-black p-4 font-black text-xl focus:bg-yellow-50 outline-none" />
+                  <input 
+                    type="number" 
+                    value={savingsTarget}
+                    onChange={(e) => setSavingsTarget(e.target.value)}
+                    className="w-full border-4 border-black p-4 font-black text-xl focus:bg-[#FFFF00] outline-none transition-colors" 
+                  />
                 </div>
               </div>
 
               <div className="bg-[#FFFF00] border-4 border-black p-6 flex flex-col justify-center items-center text-center shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
                 <Target size={40} className="mb-2" />
-                <p className="font-black text-xs uppercase mb-1 text-black">Anggaran Aman</p>
-                <p className="text-4xl font-black leading-none italic">Rp 5.500.000</p>
-                <p className="text-[10px] font-bold mt-2 uppercase">AI merekomendasikan batas ini agar target tercapai.</p>
+                <p className="font-black text-xs uppercase mb-1 text-black">Anggaran Aman (Prediksi AI)</p>
+                <p className="text-4xl font-black leading-none italic">Rp {(Number(fixedIncome) - Number(savingsTarget)).toLocaleString('id-ID')}</p>
+                <p className="text-[10px] font-bold mt-2 uppercase">Batas pengeluaran bulanan agar target tercapai.</p>
               </div>
             </div>
           </div>

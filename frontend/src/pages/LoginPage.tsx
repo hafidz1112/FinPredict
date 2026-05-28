@@ -1,16 +1,45 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Zap } from 'lucide-react';
+import api from '../lib/api';
+import { useAuthStore } from '../store/authStore';
 
 export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const setAuth = useAuthStore(state => state.setAuth);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    localStorage.setItem('isLoggedIn', 'true');
-    localStorage.setItem('userName', 'Muhammad Hafidz');
-    navigate('/');
+    setError(null);
+    setIsLoading(true);
+    try {
+      if (isLogin) {
+        const response = await api.post('/auth/login', { email, password });
+        if (response.data.status === 'success') {
+          const { user, access_token } = response.data.data;
+          setAuth(user, access_token);
+          navigate('/');
+        }
+      } else {
+        const response = await api.post('/auth/register', { email, password, full_name: fullName });
+        if (response.data.status === 'success') {
+          const { user, access_token } = response.data.data;
+          setAuth(user, access_token);
+          navigate('/');
+        }
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || `${isLogin ? 'Login' : 'Register'} failed. Please try again.`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -54,7 +83,7 @@ export function LoginPage() {
       <div className="w-full max-w-md bg-white border-4 border-black shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] relative z-10 outline outline-4 outline-black outline-offset-4 border-dashed border-spacing-4">
         
         {/* TAB BUTTONS */}
-        {/* <div className="flex border-b-4 border-black">
+        <div className="flex border-b-4 border-black">
           <button 
             onClick={() => setIsLogin(true)}
             className={`flex-1 py-4 font-black  uppercase text-sm transition-all ${isLogin ? 'bg-[#FFFF00]' : 'bg-white'}`}
@@ -68,15 +97,35 @@ export function LoginPage() {
           >
             Register
           </button>
-        </div> */}
+        </div>
 
         <div className="p-10">
-          <h1 className="text-5xl font-black uppercase tracking-tighter mb-4 leading-none">Welcome</h1>
-          <p className="font-bold text-sm text-slate-800 mb-10 uppercase leading-tight">
-            Access your AI-powered financial forecasts instantly.
+          <h1 className="text-5xl font-black uppercase tracking-tighter mb-4 leading-none">{isLogin ? 'Welcome' : 'Join Us'}</h1>
+          <p className="font-bold text-sm text-slate-800 mb-6 uppercase leading-tight">
+            {isLogin ? 'Access your AI-powered financial forecasts instantly.' : 'Create an account to start your financial journey.'}
           </p>
 
-          <form className="space-y-8" onSubmit={handleLogin}>
+          {error && (
+            <div className="mb-6 p-4 bg-red-100 border-4 border-black text-red-600 font-bold uppercase text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              {error}
+            </div>
+          )}
+
+          <form className="space-y-8" onSubmit={handleSubmit}>
+            {/* FULL NAME INPUT (REGISTER ONLY) */}
+            {!isLogin && (
+              <div className="group">
+                <label className="inline-block text-[11px] font-black uppercase border-2 border-black bg-[#D9D9D7] px-2 py-0.5 ml-3 -mb-3 relative z-20">
+                  Full Name
+                </label>
+                <input 
+                  type="text" 
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full border-4 border-black p-4 font-bold text-lg focus:outline-none focus:bg-yellow-50 placeholder:text-slate-400"
+                />
+              </div>
+            )}
             {/* EMAIL INPUT */}
             <div className="group">
               <label className="inline-block text-[11px] font-black uppercase border-2 border-black bg-[#D9D9D7] px-2 py-0.5 ml-3 -mb-3 relative z-20">
@@ -84,7 +133,8 @@ export function LoginPage() {
               </label>
               <input 
                 type="email" 
-                defaultValue="user@finpredict.ai" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full border-4 border-black p-4 font-bold text-lg focus:outline-none focus:bg-yellow-50 placeholder:text-slate-400"
               />
             </div>
@@ -97,7 +147,8 @@ export function LoginPage() {
               <div className="relative">
                 <input 
                   type={showPassword ? "text" : "password"} 
-                  defaultValue="password123" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="w-full border-4 border-black p-4 font-bold text-lg focus:outline-none focus:bg-yellow-50 placeholder:text-slate-400"
                 />
                 <button 
@@ -113,9 +164,10 @@ export function LoginPage() {
             {/* LOGIN BUTTON */}
             <button 
               type="submit" 
-              className="w-full bg-[#7CFF7C] border-4 border-black py-5 font-black uppercase text-xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[6px] active:translate-y-[6px] transition-all"
+              disabled={isLoading}
+              className="w-full bg-[#7CFF7C] border-4 border-black py-5 font-black uppercase text-xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[6px] active:translate-y-[6px] transition-all disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              Initialize Session
+              {isLoading ? 'Initializing...' : 'Initialize Session'}
             </button>
           </form>
 

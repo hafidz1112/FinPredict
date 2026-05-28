@@ -8,18 +8,33 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 import { BrainCircuit, TrendingUp, AlertTriangle, ShieldCheck, ArrowRight } from 'lucide-react';
-
-const data = [
-  { name: '1 Mei', aktual: 4000, prediksi: null },
-  { name: '5 Mei', aktual: 3500, prediksi: null },
-  { name: '10 Mei', aktual: 5200, prediksi: null },
-  { name: '15 Mei', aktual: 4800, prediksi: 4800 },
-  { name: '20 Mei', aktual: null, prediksi: 6100 },
-  { name: '25 Mei', aktual: null, prediksi: 5500 },
-  { name: '30 Mei', aktual: null, prediksi: 7200 },
-];
+import { usePredictions } from '../hooks/usePredictions';
+import { useNotifications } from '../hooks/useNotifications';
 
 export function AIAnalyticsPage() {
+  const { usePredictionsQuery, useGeneratePredictionMutation } = usePredictions();
+  const { data: predictions = [] } = usePredictionsQuery();
+  const generateMutation = useGeneratePredictionMutation();
+
+  const { useNotificationsQuery } = useNotifications();
+  const { data: notifications = [] } = useNotificationsQuery();
+  
+  // Sort warnings (from notifications)
+  const warnings = notifications.filter((n: any) => n.type === 'WARNING').sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const latestWarning = warnings[0];
+
+  const accuracyScore = 94.82; // Mock accuracy for now, could be dynamic
+
+  // Chart Data Preparation
+  // Combine historical (from summary) and predicted (from predictions)
+  const chartData = predictions.map((p: any) => {
+    const d = new Date(p.forecast_date);
+    return {
+      name: `${d.getDate()} ${d.toLocaleString('id-ID', { month: 'short' }).toUpperCase()}`,
+      prediksi: Number(p.predicted_amount),
+      aktual: null // We could map actual data if we had daily historicals, but for now we'll show predictions
+    };
+  });
   return (
     <div className="bg-[#F5F5DC] min-h-screen font-sans text-black p-4 md:p-8">
       
@@ -36,9 +51,18 @@ export function AIAnalyticsPage() {
             </span>
           </div>
         </div>
-        <div className="bg-black text-white p-4 border-4 border-black shadow-[6px_6px_0px_0px_rgba(74,222,128,1)] self-start md:self-auto">
-           <p className="text-[10px] font-black uppercase text-[#4ade80]">Skor Akurasi</p>
-           <p className="text-2xl md:text-3xl font-black italic">94.82%</p>
+        <div className="bg-black text-white p-4 border-4 border-black shadow-[6px_6px_0px_0px_rgba(74,222,128,1)] self-start md:self-auto flex items-center gap-4">
+          <div>
+            <p className="text-[10px] font-black uppercase text-[#4ade80]">Skor Akurasi</p>
+            <p className="text-2xl md:text-3xl font-black italic">{accuracyScore}%</p>
+          </div>
+          <button 
+            onClick={() => generateMutation.mutate()}
+            disabled={generateMutation.isPending}
+            className="ml-4 bg-[#4ade80] text-black border-2 border-white px-4 py-2 font-black uppercase text-xs shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] disabled:opacity-50"
+          >
+            {generateMutation.isPending ? 'Memproses...' : 'Generate AI'}
+          </button>
         </div>
       </div>
 
@@ -58,7 +82,7 @@ export function AIAnalyticsPage() {
           
           <div className="h-[250px] md:h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data}>
+              <LineChart data={chartData.length > 0 ? chartData : [{ name: 'No Data', prediksi: 0, aktual: 0 }]}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ddd" />
                 <XAxis dataKey="name" axisLine={{ strokeWidth: 4 }} tick={{ fontWeight: 'bold', fontSize: 10 }} />
                 <YAxis axisLine={{ strokeWidth: 4 }} tick={{ fontWeight: 'bold', fontSize: 10 }} width={40} />
@@ -86,14 +110,18 @@ export function AIAnalyticsPage() {
         </div>
 
         {/* KARTU RISIKO & WAWASAN: Stack di Mobile & Tablet, 3 Kolom di Desktop Besar */}
-        <div className="col-span-1 md:col-span-12 lg:col-span-4 bg-[#FFB6C1] border-4 border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-          <div className="bg-white border-2 border-black w-fit p-2 mb-4">
-            <AlertTriangle size={24} />
+        <div className="col-span-1 md:col-span-12 lg:col-span-4 bg-[#FFB6C1] border-4 border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between">
+          <div>
+            <div className="bg-white border-2 border-black w-fit p-2 mb-4">
+              <AlertTriangle size={24} />
+            </div>
+            <h3 className="font-black text-lg md:text-xl uppercase mb-2 leading-none">Anomali Terdeteksi</h3>
+            <p className="font-bold text-xs md:text-sm mb-6 leading-tight italic">
+              {latestWarning 
+                ? `"${latestWarning.message}"` 
+                : '"Tidak ada anomali atau peringatan yang signifikan terdeteksi saat ini."'}
+            </p>
           </div>
-          <h3 className="font-black text-lg md:text-xl uppercase mb-2 leading-none">Anomali Terdeteksi</h3>
-          <p className="font-bold text-xs md:text-sm mb-6 leading-tight italic">
-            "Pengeluaran akhir pekan Anda meningkat 25% selama 3 minggu terakhir. AI memprediksi anggaran habis pada 24 Mei."
-          </p>
           <button className="w-full bg-black text-white py-3 font-black uppercase text-[10px] border-2 border-white shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all">
             Sesuaikan Anggaran
           </button>

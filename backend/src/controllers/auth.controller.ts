@@ -1,8 +1,6 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/prisma';
 import { supabase } from '../config/supabase';
-
-const prisma = new PrismaClient();
 
 /**
  * POST /api/auth/register

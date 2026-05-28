@@ -5,12 +5,14 @@ import { Dashboard } from '@/pages/Dashboard';
 import { TransactionPage } from '@/pages/TransactionPage';
 import { AIAnalyticsPage } from '@/pages/AIAnalyticsPage';
 import { BudgetSettingsPage } from '@/pages/BudgetSettingsPage';
+import { ProfilePage } from '@/pages/ProfilePage';
+import { SupportPage } from '@/pages/SupportPage';
+import { useAuthStore } from '@/store/authStore';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  // PERBAIKAN: Cek apakah nilainya adalah 'true'
-  const isAuthenticated = localStorage.getItem('isLoggedIn') === 'true';
+  const token = useAuthStore((state) => state.token);
 
-  if (!isAuthenticated) {
+  if (!token) {
     return <Navigate to="/login" replace />;
   }
 
@@ -31,6 +33,8 @@ function App() {
                 <Route path="/transactions" element={<TransactionPage/>} />
                 <Route path="/budgets" element={<BudgetSettingsPage/>} />
                 <Route path="/analytics" element={<AIAnalyticsPage/>} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/support" element={<SupportPage />} />
               </Routes>
             </Layout>
           </ProtectedRoute>
